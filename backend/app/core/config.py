@@ -6,8 +6,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     # Qloo API config
     QLOO_API_KEY: str = Field(
-        default="hack_cc337563ea74c0bb0424096700fbdbc0bfa87739",
-        description="Hackathon API key for Qloo Taste Intelligence API"
+        default_factory=lambda: os.getenv("QLOO_API_KEY", ""),
+        description="Qloo Taste Intelligence API key loaded from the environment"
     )
     QLOO_BASE_URL: str = Field(
         default="https://hackathon.api.qloo.com",

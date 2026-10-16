@@ -1,5 +1,6 @@
 import uuid
 import asyncio
+from uuid import UUID
 from typing import List, Dict, Any, Optional
 from app.core.logger import logger
 from app.core.constants import QlooEntityType, POPULAR_LOCATIONS, AESTHETIC_PRIORITIES
@@ -71,16 +72,20 @@ class AgentOrchestrator:
         # Step 1: Verify & Resolve Qloo UUIDs for each game
         verified_games: List[UserGameSelection] = []
         for g in input_games:
-            if g.id and len(g.id) > 10:
+            if self._is_resolved_entity_id(g.id):
                 verified_games.append(g)
             else:
-                search_results = await qloo_client.search(
+                search_results = await qloo_client.search_entity(
                     query=g.name,
                     limit=5,
                     entity_type=QlooEntityType.VIDEOGAME.value
                 )
-                if search_results:
-                    top = search_results[0]
+                videogame_results = [
+                    result for result in search_results
+                    if QlooEntityType.VIDEOGAME.value in result.get("types", [])
+                ]
+                if videogame_results:
+                    top = videogame_results[0]
                     verified_games.append(UserGameSelection(
                         id=top["id"],
                         name=top["name"],
@@ -141,6 +146,17 @@ class AgentOrchestrator:
             verified_games=verified_games,
             clarification_questions=questions
         )
+
+    @staticmethod
+    def _is_resolved_entity_id(entity_id: str) -> bool:
+        if entity_id.startswith("urn:entity:"):
+            return True
+        if len(entity_id) != 36:
+            return False
+        try:
+            return str(UUID(entity_id)) == entity_id.lower()
+        except ValueError:
+            return False
 
     async def _handle_execute_drop(self, session_id: str, request: ChatRequest) -> ChatResponse:
         session = session_store.get(session_id)

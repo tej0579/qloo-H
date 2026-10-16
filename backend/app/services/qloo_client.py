@@ -152,6 +152,15 @@ class QlooClient:
                 })
         return matched_local
 
+    async def search_entity(
+        self,
+        query: str,
+        limit: int = 10,
+        entity_type: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Resolve a named entity through Qloo search (or its configured demo fallback)."""
+        return await self.search(query=query, limit=limit, entity_type=entity_type)
+
     async def get_insights(
         self,
         seed_entity_ids: List[str],

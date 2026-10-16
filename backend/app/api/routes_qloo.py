@@ -32,10 +32,11 @@ async def proxy_insights(
     if not seed_list:
         raise HTTPException(status_code=400, detail="At least one seed entity UUID required.")
 
-    entities = await qloo_client.get_insights(
+    result = await qloo_client.get_insights(
         seed_entity_ids=seed_list,
         filter_type=filter_type,
         location_query=location,
         take=take
     )
-    return {"entities": entities, "count": len(entities)}
+    entities = result["entities"]
+    return {"entities": entities, "count": len(entities), "data_source": result["data_source"]}

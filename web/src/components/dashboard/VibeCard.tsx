@@ -19,9 +19,11 @@ export const VibeCard: React.FC<VibeCardProps> = ({ item }) => {
             {item.category}
           </span>
           <span
-            className={`px-2 py-0.5 rounded-full text-[11px] font-bold font-mono border ${getScoreColorClass(
-              item.affinity_score
-            )}`}
+            className={`px-2 py-0.5 rounded-full text-[11px] font-bold font-mono border ${
+              item.affinity_score == null
+                ? "bg-zinc-500/10 text-zinc-400 border-zinc-500/30"
+                : getScoreColorClass(item.affinity_score)
+            }`}
           >
             {formatAffinity(item.affinity_score)} Affinity
           </span>

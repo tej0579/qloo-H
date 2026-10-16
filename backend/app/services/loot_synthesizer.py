@@ -1,4 +1,5 @@
 import time
+from math import isfinite
 from typing import List, Dict, Any
 from app.models.schemas_api import (
     LootDropPayload,
@@ -27,6 +28,7 @@ class LootSynthesizer:
         qloo_artists: List[Dict[str, Any]],
         qloo_places: List[Dict[str, Any]],
         qloo_movies: List[Dict[str, Any]],
+        data_source: str,
         llm_cliche_data: Dict[str, Any]
     ) -> LootDropPayload:
         game_names = [g.name for g in seed_games]
@@ -39,7 +41,7 @@ class LootSynthesizer:
                 id=b.get("id", f"brand-{idx}"),
                 name=b.get("name", "Acronym"),
                 category="Apparel & Techwear",
-                affinity_score=float(b.get("affinity", b.get("score", 92.0))),
+                affinity_score=self._score(b),
                 tags=b.get("tags", ["Technical Wear", "Monochrome"]),
                 description=f"Statistically over-indexed brand among {', '.join(game_names)} player communities.",
                 properties=b.get("properties", {})
@@ -52,7 +54,7 @@ class LootSynthesizer:
                 id=a.get("id", f"artist-{idx}"),
                 name=a.get("name", "Polyphia"),
                 category="Soundtracks & Audio",
-                affinity_score=float(a.get("affinity", a.get("score", 94.5))),
+                affinity_score=self._score(a),
                 tags=a.get("tags", ["Math Rock", "Instrumental"]),
                 description=f"Acoustic alignment matching gameplay intensity and pacing.",
                 properties=a.get("properties", {})
@@ -65,7 +67,7 @@ class LootSynthesizer:
                 id=p.get("id", f"place-{idx}"),
                 name=p.get("name", "Obsidian Hi-Fi Lounge"),
                 category="Sanctuaries & Dining",
-                affinity_score=float(p.get("affinity", p.get("score", 91.0))),
+                affinity_score=self._score(p),
                 tags=p.get("tags", ["Vinyl Hi-Fi", "Cocktails"]),
                 description=f"Physical atmospheric space in {location} mirroring the game's aesthetic universe.",
                 location=p.get("address", location),
@@ -80,7 +82,7 @@ class LootSynthesizer:
                 id=m.get("id", f"movie-{idx}"),
                 name=m.get("name", "The Green Knight"),
                 category="Cinema & Narrative",
-                affinity_score=float(m.get("affinity", m.get("score", 93.0))),
+                affinity_score=self._score(m),
                 tags=m.get("tags", ["Atmospheric", "Auteur"]),
                 description=f"Screen narrative with shared visual grammar and thematic tone.",
                 properties=m.get("properties", {})
@@ -119,11 +121,16 @@ class LootSynthesizer:
 
         # Comparator items from Qloo reality
         qloo_comparator_items = []
+        qloo_detail = (
+            "Returned by Qloo's live cultural insights graph"
+            if data_source == "qloo_live"
+            else "Illustrative offline demo recommendation; not returned by live Qloo"
+        )
         for b in brand_items[:3]:
             qloo_comparator_items.append(ComparatorItem(
                 category="Fashion",
                 item_name=b.name,
-                detail="Validated cultural affinity via Qloo consumer graph",
+                detail=qloo_detail,
                 vibe_or_tag=", ".join(b.tags[:2]) if b.tags else "Grounded",
                 score=b.affinity_score
             ))
@@ -131,7 +138,7 @@ class LootSynthesizer:
             qloo_comparator_items.append(ComparatorItem(
                 category="Music",
                 item_name=a.name,
-                detail="Soundtrack & sonic over-indexing in player cohorts",
+                detail=qloo_detail,
                 vibe_or_tag=", ".join(a.tags[:2]) if a.tags else "Sonic Match",
                 score=a.affinity_score
             ))
@@ -139,7 +146,11 @@ class LootSynthesizer:
             qloo_comparator_items.append(ComparatorItem(
                 category="Places",
                 item_name=p.name,
-                detail=f"Atmospheric venue grounded in {location}",
+                detail=(
+                    f"Venue recommendation for {location} returned by Qloo"
+                    if data_source == "qloo_live"
+                    else f"Illustrative venue example for {location}; not returned by live Qloo"
+                ),
                 vibe_or_tag=", ".join(p.tags[:2]) if p.tags else "Sanctuary",
                 score=p.affinity_score
             ))
@@ -168,21 +179,38 @@ class LootSynthesizer:
             unassisted_llm_response=raw_llm_items,
             qloo_grounded_response=qloo_comparator_items,
             comparisons=comparisons,
-            summary_verdict=llm_cliche_data.get(
-                "summary_verdict",
-                "Qloo's mathematical taste graph replaces shallow merchandise tropes with genuine subcultural alignment."
+            summary_verdict=(
+                llm_cliche_data.get(
+                    "summary_verdict",
+                    "Qloo's taste graph provides cross-domain cultural recommendations."
+                )
+                if data_source == "qloo_live"
+                else "Offline demo recommendations are illustrative examples; live Qloo affinity data was unavailable for this drop."
             )
         )
 
-        # Multi-axis Radar Metrics for Recharts
-        radar_metrics = [
-            RadarMetric(subject="Streetwear", qloo_affinity=94.0, llm_relevance=42.0),
-            RadarMetric(subject="Soundtrack OST", qloo_affinity=96.0, llm_relevance=48.0),
-            RadarMetric(subject="Physical Venues", qloo_affinity=92.0, llm_relevance=36.0),
-            RadarMetric(subject="Cinema & Mood", qloo_affinity=95.0, llm_relevance=52.0),
-            RadarMetric(subject="Aesthetic Depth", qloo_affinity=98.0, llm_relevance=38.0),
-            RadarMetric(subject="Non-Cliché Index", qloo_affinity=97.0, llm_relevance=24.0)
+        # Compare category averages from the returned recommendation scores.
+        radar_categories = [
+            ("Fashion", brand_items, "Fashion"),
+            ("Music", artist_items, "Music"),
+            ("Places", place_items, "Places"),
+            ("Films", movie_items, "Films"),
         ]
+        radar_metrics = [
+            RadarMetric(
+                subject=subject,
+                qloo_affinity=self._average_score(items, "affinity_score"),
+                llm_relevance=self._average_score(
+                    [item for item in raw_llm_items if item.category.casefold() == llm_category.casefold()],
+                    "score"
+                ),
+            )
+            for subject, items, llm_category in radar_categories
+        ]
+        overall_match_score = self._average_score(
+            brand_items + artist_items + place_items + movie_items,
+            "affinity_score"
+        )
 
         return LootDropPayload(
             session_id=session_id,
@@ -194,8 +222,27 @@ class LootSynthesizer:
             categories=categories,
             comparator=comparator,
             radar_metrics=radar_metrics,
+            data_source=data_source,
+            overall_match_score=overall_match_score,
             created_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         )
+
+    @staticmethod
+    def _score(item: Dict[str, Any]) -> float | None:
+        score = item.get("affinity", item.get("score"))
+        if score is None:
+            return None
+        numeric_score = float(score)
+        return numeric_score if isfinite(numeric_score) else None
+
+    @staticmethod
+    def _average_score(items: List[Any], field: str) -> float | None:
+        scores = []
+        for item in items:
+            score = getattr(item, field, None) if not isinstance(item, dict) else item.get(field)
+            if score is not None and isfinite(float(score)):
+                scores.append(float(score))
+        return round(sum(scores) / len(scores), 2) if scores else None
 
     def _generate_persona(self, game_names: List[str], focus: str) -> tuple[str, str]:
         joined = " + ".join(game_names)

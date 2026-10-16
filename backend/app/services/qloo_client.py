@@ -158,12 +158,12 @@ class QlooClient:
         filter_type: str,
         location_query: Optional[str] = None,
         take: int = 5
-    ) -> List[Dict[str, Any]]:
+    ) -> Dict[str, Any]:
         """
         Queries /v2/insights for statistical cross-domain taste correlation.
         """
         if not seed_entity_ids:
-            return []
+            return {"entities": [], "data_source": "demo_fallback"}
 
         clean_seeds = [s for s in seed_entity_ids if s]
         params: Dict[str, Any] = {
@@ -194,22 +194,28 @@ class QlooClient:
                                 tag_names.append(t)
                             elif isinstance(t, dict):
                                 tag_names.append(t.get("name") or t.get("id") or "")
-                        normalized.append({
+                        normalized_entity = {
                             "id": e_id,
                             "entity_id": e_id,
                             "name": e.get("name", "Unknown"),
                             "tags": [t for t in tag_names if t][:4],
-                            "affinity": float(e.get("affinity", 88.0)),
                             "properties": e.get("properties", {})
-                        })
-                    return normalized
+                        }
+                        affinity = e.get("affinity")
+                        if affinity is not None:
+                            normalized_entity["affinity"] = float(affinity)
+                        normalized.append(normalized_entity)
+                    return {"entities": normalized, "data_source": "qloo_live"}
                 else:
                     logger.warning(f"Qloo /v2/insights {filter_type} returned HTTP {res.status_code}: {res.text[:120]}")
         except Exception as e:
             logger.error(f"Error querying Qloo /v2/insights: {e}")
 
         # Fallback offline intelligence
-        return self._get_fallback_insights(seed_entity_ids, filter_type, location_query, take)
+        return {
+            "entities": self._get_fallback_insights(seed_entity_ids, filter_type, location_query, take),
+            "data_source": "demo_fallback"
+        }
 
     def _get_fallback_insights(
         self,

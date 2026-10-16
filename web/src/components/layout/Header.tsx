@@ -19,7 +19,7 @@ export const Header: React.FC<HeaderProps> = ({
   const [health, setHealth] = useState<{
     status: string;
     qloo_connected: boolean;
-    qloo_latency_ms?: number;
+    qloo_latency_ms?: number | null;
   }>({ status: "checking", qloo_connected: false });
 
   useEffect(() => {

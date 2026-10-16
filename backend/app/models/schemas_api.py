@@ -1,4 +1,4 @@
-from typing import List, Optional, Dict, Any, Union
+from typing import List, Optional, Dict, Any, Union, Literal
 from pydantic import BaseModel, Field
 
 class ChatMessage(BaseModel):
@@ -41,14 +41,14 @@ class ComparatorPayload(BaseModel):
 
 class RadarMetric(BaseModel):
     subject: str
-    qloo_affinity: float
-    llm_relevance: float
+    qloo_affinity: Optional[float] = None
+    llm_relevance: Optional[float] = None
 
 class LootDropItem(BaseModel):
     id: str
     name: str
     category: str
-    affinity_score: float
+    affinity_score: Optional[float] = None
     tags: List[str] = Field(default_factory=list)
     description: Optional[str] = None
     location: Optional[str] = None
@@ -72,6 +72,8 @@ class LootDropPayload(BaseModel):
     categories: List[LootDropCategory] = Field(default_factory=list)
     comparator: ComparatorPayload
     radar_metrics: List[RadarMetric] = Field(default_factory=list)
+    data_source: Literal["qloo_live", "demo_fallback"]
+    overall_match_score: Optional[float] = None
     created_at: str
 
 class ClarificationOption(BaseModel):

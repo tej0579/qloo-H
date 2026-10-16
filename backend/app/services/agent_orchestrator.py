@@ -179,12 +179,19 @@ class AgentOrchestrator:
         movie_task = qloo_client.get_insights(game_ids, filter_type=QlooEntityType.MOVIE.value, take=4)
         cliche_task = llm_comparator.generate_cliches(game_names, location)
 
-        brands, artists, places, movies, cliches = await asyncio.gather(
+        brand_result, artist_result, place_result, movie_result, cliches = await asyncio.gather(
             brand_task,
             artist_task,
             place_task,
             movie_task,
             cliche_task
+        )
+
+        insight_results = [brand_result, artist_result, place_result, movie_result]
+        data_source = (
+            "qloo_live"
+            if all(result["data_source"] == "qloo_live" for result in insight_results)
+            else "demo_fallback"
         )
 
         # Step 5: Merge and synthesize the finalized Loot Drop Payload
@@ -193,10 +200,11 @@ class AgentOrchestrator:
             seed_games=verified_games,
             location=location,
             aesthetic_focus=aesthetic,
-            qloo_brands=brands,
-            qloo_artists=artists,
-            qloo_places=places,
-            qloo_movies=movies,
+            qloo_brands=brand_result["entities"],
+            qloo_artists=artist_result["entities"],
+            qloo_places=place_result["entities"],
+            qloo_movies=movie_result["entities"],
+            data_source=data_source,
             llm_cliche_data=cliches
         )
 

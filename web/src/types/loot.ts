@@ -2,7 +2,7 @@ export interface LootDropItem {
   id: string;
   name: string;
   category: string;
-  affinity_score: number;
+  affinity_score: number | null;
   tags: string[];
   description?: string;
   location?: string;
@@ -43,8 +43,8 @@ export interface ComparatorPayload {
 
 export interface RadarMetric {
   subject: string;
-  qloo_affinity: number;
-  llm_relevance: number;
+  qloo_affinity: number | null;
+  llm_relevance: number | null;
 }
 
 export interface LootDropPayload {
@@ -57,5 +57,7 @@ export interface LootDropPayload {
   categories: LootDropCategory[];
   comparator: ComparatorPayload;
   radar_metrics: RadarMetric[];
+  data_source: "qloo_live" | "demo_fallback";
+  overall_match_score: number | null;
   created_at: string;
 }

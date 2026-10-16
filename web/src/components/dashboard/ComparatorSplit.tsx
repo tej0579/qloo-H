@@ -5,9 +5,11 @@ import { Badge } from "@/components/ui/badge";
 
 interface ComparatorSplitProps {
   comparator: ComparatorPayload;
+  dataSource: "qloo_live" | "demo_fallback";
 }
 
-export const ComparatorSplit: React.FC<ComparatorSplitProps> = ({ comparator }) => {
+export const ComparatorSplit: React.FC<ComparatorSplitProps> = ({ comparator, dataSource }) => {
+  const hasLiveQlooData = dataSource === "qloo_live";
   return (
     <div className="space-y-6">
       {/* Header Banner */}
@@ -19,12 +21,18 @@ export const ComparatorSplit: React.FC<ComparatorSplitProps> = ({ comparator }) 
           <div>
             <h3 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
               <span>The Split-Screen Taste Comparator</span>
-              <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                Live Contrast
+              <span className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded border ${
+                hasLiveQlooData
+                  ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                  : "bg-amber-500/20 text-amber-300 border-amber-500/30"
+              }`}>
+                {hasLiveQlooData ? "Live Contrast" : "Offline Demo Contrast"}
               </span>
             </h3>
             <p className="text-xs text-zinc-400">
-              Measuring the gulf between standard LLM clichés and real statistical cultural reality.
+              {hasLiveQlooData
+                ? "Comparing generic LLM guesses with recommendations returned by Qloo's cultural graph."
+                : "Comparing generic LLM guesses with illustrative offline demo recommendations."}
             </p>
           </div>
         </div>
@@ -33,8 +41,8 @@ export const ComparatorSplit: React.FC<ComparatorSplitProps> = ({ comparator }) 
           <div className="text-[11px] font-mono text-zinc-400">
             Hackathon Benchmark
           </div>
-          <div className="text-xs font-semibold text-cyber-cyan">
-            Ground Truth Cultural Graph
+          <div className={`text-xs font-semibold ${hasLiveQlooData ? "text-cyber-cyan" : "text-amber-300"}`}>
+            {hasLiveQlooData ? "Live Qloo Insights" : "Demo Data, Not Live Qloo"}
           </div>
         </div>
       </div>
@@ -99,16 +107,18 @@ export const ComparatorSplit: React.FC<ComparatorSplitProps> = ({ comparator }) 
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-cyber-cyan" />
               <span className="font-bold text-sm text-cyber-cyan">
-                WITH QLOO (Cultural Taste Graph)
+                {hasLiveQlooData ? "WITH QLOO (Cultural Taste Graph)" : "OFFLINE DEMO RECOMMENDATIONS"}
               </span>
             </div>
             <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-cyber-cyan/10 text-cyber-cyan border border-cyber-cyan/40">
-              Validated Reality
+              {hasLiveQlooData ? "Qloo Live Results" : "Illustrative Fallback"}
             </span>
           </div>
 
           <p className="text-xs text-zinc-300">
-            Grounded in statistical consumer co-occurrences—mapping what real gamers purchase, stream, and inhabit outside the game.
+            {hasLiveQlooData
+              ? "Recommendations returned by Qloo's cross-domain taste graph for the selected game entities."
+              : "These examples come from the local demo catalog and do not represent live Qloo results."}
           </p>
 
           {/* Validated Qloo Items List */}
@@ -135,7 +145,7 @@ export const ComparatorSplit: React.FC<ComparatorSplitProps> = ({ comparator }) 
           </div>
 
           <div className="p-3 rounded-lg bg-cyber-cyan/10 border border-cyber-cyan/30 text-[11px] text-cyber-cyan">
-            ✅ <strong>Result:</strong> Elevated avant-garde techwear, virtuoso instrumental sound design, and brutalist hi-fi listening lounges.
+            ✅ <strong>{hasLiveQlooData ? "Qloo results:" : "Demo examples:"}</strong> Elevated avant-garde techwear, virtuoso instrumental sound design, and brutalist hi-fi listening lounges.
           </div>
         </div>
       </div>
@@ -167,7 +177,9 @@ export const ComparatorSplit: React.FC<ComparatorSplitProps> = ({ comparator }) 
                     <span>{comp.unassisted_llm_cliche}</span>
                   </div>
                   <div className="flex items-start gap-1.5 text-zinc-200 font-medium">
-                    <span className="text-cyber-cyan font-mono shrink-0">Qloo Reality:</span>
+                    <span className="text-cyber-cyan font-mono shrink-0">
+                      {hasLiveQlooData ? "Qloo Results:" : "Demo Examples:"}
+                    </span>
                     <span>{comp.qloo_grounded_reality}</span>
                   </div>
                 </div>

@@ -14,6 +14,7 @@ import {
   Sparkles,
   MapPin,
   CheckCircle,
+  Database,
   Gamepad2,
   Compass,
 } from "lucide-react";
@@ -57,6 +58,20 @@ export const LootDashboard: React.FC<LootDashboardProps> = ({ payload, onReset }
               <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-cyber-cyan/15 text-cyber-cyan border border-cyber-cyan/40 uppercase tracking-wider flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5" />
                 Synthesized Persona
+              </span>
+              <span
+                className={`px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold border uppercase tracking-wider flex items-center gap-1.5 ${
+                  payload.data_source === "qloo_live"
+                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/40"
+                    : "bg-amber-500/10 text-amber-300 border-amber-500/40"
+                }`}
+              >
+                {payload.data_source === "qloo_live" ? (
+                  <CheckCircle className="w-3.5 h-3.5" />
+                ) : (
+                  <Database className="w-3.5 h-3.5" />
+                )}
+                {payload.data_source === "qloo_live" ? "Qloo Live Verified" : "Offline Demo Fallback"}
               </span>
               {payload.location && (
                 <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono bg-zinc-800 text-zinc-300 border border-zinc-700 flex items-center gap-1">
@@ -126,14 +141,19 @@ export const LootDashboard: React.FC<LootDashboardProps> = ({ payload, onReset }
             </div>
           </div>
           <div>
-            <div className="text-zinc-500 font-mono text-[11px] uppercase">Avg Qloo Affinity</div>
-            <div className="text-sm font-bold text-emerald-400 mt-0.5">93.8% Correlation</div>
+            <div className="text-zinc-500 font-mono text-[11px] uppercase">Overall Match Score</div>
+            <div className="text-sm font-bold text-emerald-400 mt-0.5">
+              {payload.overall_match_score == null
+                ? "N/A"
+                : `${Math.round(payload.overall_match_score)}% average affinity`}
+            </div>
           </div>
           <div>
-            <div className="text-zinc-500 font-mono text-[11px] uppercase">Validation Status</div>
-            <div className="text-sm font-bold text-purple-400 mt-0.5 flex items-center gap-1">
-              <CheckCircle className="w-3.5 h-3.5" />
-              100% Non-Hallucinated
+            <div className="text-zinc-500 font-mono text-[11px] uppercase">Recommendation Source</div>
+            <div className={`text-sm font-bold mt-0.5 flex items-center gap-1 ${
+              payload.data_source === "qloo_live" ? "text-emerald-400" : "text-amber-300"
+            }`}>
+              {payload.data_source === "qloo_live" ? "Live Qloo insights" : "Offline demo data"}
             </div>
           </div>
         </div>
@@ -147,7 +167,7 @@ export const LootDashboard: React.FC<LootDashboardProps> = ({ payload, onReset }
             Split-Screen Taste Comparator
           </h2>
         </div>
-        <ComparatorSplit comparator={payload.comparator} />
+        <ComparatorSplit comparator={payload.comparator} dataSource={payload.data_source} />
       </section>
 
       {/* Visualizer & Persona Radar Section */}

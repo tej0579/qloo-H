@@ -1,4 +1,4 @@
-# 🎮 IRL LootDrop: Cultural Intelligence for Gamers
+# IRL LootDrop: Gaming Taste to Real-World Lifestyle via Qloo Cultural Intelligence
 
 > **Transforming video game obsession into authentic real-world lifestyle drops.**  
 > Built for the **Qloo Taste AI Hackathon 2026** • Grounded in the Qloo Cultural Intelligence Graph.
@@ -9,6 +9,20 @@
 [![Qloo API](https://img.shields.io/badge/Qloo_API-Hackathon_Connected-00f0ff.svg)](https://hackathon.api.qloo.com)
 
 ---
+
+## Project Overview
+
+IRL LootDrop turns favorite video games into a real-world lifestyle profile. It combines Qloo cultural insights with a no-tools LLM baseline to recommend fashion, music, city places, and films, then presents the difference in a split-screen dashboard. Aesthetic choices such as streetwear, techwear, minimalism, audiophile culture, vintage, cyberpunk, and dark academia can shape the fashion and music insight requests.
+
+## Architecture at a Glance
+
+- **Next.js 14 frontend:** game search, city and aesthetic selection, and recommendation dashboard.
+- **FastAPI orchestrator:** resolves game entities, gathers the user's clarifications, and coordinates recommendation requests.
+- **Qloo API:** `/search` resolves game entities; `/v2/insights` recommends brands, artists, places, and films from game and aesthetic signals.
+- **Split-screen LLM comparator:** compares the Qloo recommendations with a live Gemini/OpenAI baseline or a deterministic offline baseline.
+- **SQLite session store:** persists selected games, answers, and generated drops in `backend/sessions.db`.
+
+The recommendation source is included in the result payload. Tagged brand and artist queries retry without aesthetic tags when no matches are returned, then use the offline demo catalog if Qloo still has no results.
 
 ## 🏆 The Core Problem & The Qloo Difference
 
@@ -93,15 +107,15 @@ irl-lootdrop/
 │   │   │   ├── schemas_api.py              # Pydantic schemas: ChatRequest, ClarificationResponse, LootDropResponse
 │   │   │   └── schemas_qloo.py             # Strict Qloo URN Enums & entity payload models
 │   │   ├── database/
-│   │   │   └── session_store.py            # SQLite/In-memory store tracking conversation state (game seeds, answers)
+│   │   │   └── session_store.py            # SQLite store tracking conversation state (game seeds, answers)
 │   │   └── services/
 │   │       ├── qloo_client.py              # Async HTTPX client for Qloo (/search, /v2/insights, /v2/tags)
-│   │       ├── agent_orchestrator.py       # LangGraph / Tool-Calling state machine (Seed -> Clarify -> Fetch -> Synthesize)
+│   │       ├── agent_orchestrator.py       # Seed -> Clarify -> Fetch -> Synthesize request flow
 │   │       ├── llm_comparator.py           # Parallel "Naked LLM" runner that generates generic clichés for contrast
 │   │       └── loot_synthesizer.py         # Merges raw Qloo tags & affinity scores into the structured "Loot Drop"
 │   ├── requirements.txt                    # Backend dependencies (fastapi, uvicorn, httpx, pydantic)
 │   ├── Dockerfile                          # Container spec for Railway / Fly.io / Render deployment
-│   └── .env.example                        # QLOO_API_KEY, LLM_API_KEY, PORT
+│   └── .env.example                        # QLOO_API_KEY, GEMINI_API_KEY, optional OPENAI_API_KEY
 │
 └── web/                                    # 🌐 NEXT.JS 14 + TAILWIND CSS FRONTEND
     ├── package.json                        # Lucide-react, Tailwind, Recharts, Framer-motion
@@ -128,39 +142,62 @@ irl-lootdrop/
 
 ---
 
-## ⚡ Quick Start Guide
+## Local Setup
 
-### 1. Prerequisites
-- **Python 3.10+**
-- **Node.js 18+ & npm**
+### Prerequisites
 
-### 2. Backend Setup (FastAPI)
+- Python 3.10 or newer
+- Node.js 18 or newer and npm
+
+### Configure the backend
+
+Create `backend/.env` with the following values. Keep API keys private and do not commit this file.
+
+```dotenv
+QLOO_API_KEY=your_qloo_api_key
+GEMINI_API_KEY=your_gemini_api_key
+QLOO_BASE_URL=https://hackathon.api.qloo.com
+ENVIRONMENT=development
+PORT=8000
+HOST=0.0.0.0
+```
+
+`GEMINI_API_KEY` enables the live unassisted LLM comparison. `OPENAI_API_KEY` can also be set as an alternate live provider. Without either LLM key, the app uses its deterministic comparator baseline.
+
+### Install dependencies
+
 ```bash
 cd backend
-
-# Create virtual environment (optional)
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
+source venv/bin/activate
 pip install -r requirements.txt
+cd ../web
+npm ci
+cd ..
+```
 
-# Start the API server
+### Run both development servers
+
+From the repository root, run the startup script:
+
+```bash
+./scripts/start-local.sh
+```
+
+Or start them in separate terminals:
+
+```bash
+cd backend
+source venv/bin/activate
 uvicorn app.main:app --reload --port 8000
 ```
-Backend will be live at `http://localhost:8000` (Interactive Swagger docs at `http://localhost:8000/docs`).
 
-### 3. Frontend Setup (Next.js 14)
 ```bash
 cd web
-
-# Install npm dependencies
-npm install
-
-# Start development server
 npm run dev
 ```
-Frontend will be live at `http://localhost:3000`.
+
+The frontend is at `http://localhost:3000`; the FastAPI docs are at `http://localhost:8000/docs`. SQLite creates `backend/sessions.db` automatically on first backend start.
 
 ---
 

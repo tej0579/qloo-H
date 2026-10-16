@@ -22,7 +22,10 @@ class Settings(BaseSettings):
         default=["http://localhost:3000", "http://127.0.0.1:3000", "*"]
     )
 
-    # Optional LLM Key
+    # Optional Gemini key for live unassisted LLM comparison.
+    GEMINI_API_KEY: str = Field(default="")
+
+    # Optional OpenAI fallback provider.
     OPENAI_API_KEY: str = Field(default="")
 
     # Request timeouts

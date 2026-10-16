@@ -13,16 +13,41 @@ class LLMComparator:
 
     async def generate_cliches(self, game_names: List[str], location: str = "Austin, TX") -> Dict[str, Any]:
         game_list_str = ", ".join(game_names)
+        prompt = (
+            f"Given a person who plays {game_list_str}, recommend 3 fashion items, "
+            f"3 music artists, and 3 local hangout spots in {location}. "
+            "Return only valid JSON with keys: fashion (list of 3 strings), "
+            "music (list of 3 strings), places (list of 3 strings)."
+        )
 
-        # If user configured OPENAI_API_KEY, we can query live model with no tools:
+        # Gemini is preferred when configured; OpenAI remains an alternative.
+        if settings.GEMINI_API_KEY:
+            try:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    resp = await client.post(
+                        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
+                        headers={
+                            "x-goog-api-key": settings.GEMINI_API_KEY,
+                            "Content-Type": "application/json",
+                        },
+                        json={
+                            "contents": [{"parts": [{"text": prompt}]}],
+                            "generationConfig": {"responseMimeType": "application/json"},
+                        },
+                    )
+                    if resp.status_code == 200:
+                        content = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+                        formatted_items = self._format_raw_llm_items(json.loads(content), game_names, location)
+                        if formatted_items["items"]:
+                            return formatted_items
+                    else:
+                        logger.warning(f"Gemini returned HTTP {resp.status_code}: {resp.text[:120]}")
+            except Exception as e:
+                logger.warning(f"Live Gemini query failed or timed out: {e}")
+
+        # OpenAI remains available as a configured alternative.
         if settings.OPENAI_API_KEY:
             try:
-                prompt = (
-                    f"Given a person who plays {game_list_str}, recommend 3 fashion items, "
-                    f"3 music artists, and 3 local hangout spots in {location}. "
-                    "Output in JSON format with keys: fashion (list of 3 strings), "
-                    "music (list of 3 strings), places (list of 3 strings)."
-                )
                 async with httpx.AsyncClient(timeout=10.0) as client:
                     resp = await client.post(
                         "https://api.openai.com/v1/chat/completions",

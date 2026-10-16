@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Dict, List
 
 class QlooEntityType(str, Enum):
     VIDEOGAME = "urn:entity:videogame"
@@ -36,6 +37,42 @@ AESTHETIC_PRIORITIES = [
         "description": "Comprehensive mix of brands, audio, local spots, and cultural media"
     }
 ]
+
+# Qloo tag IDs used as additional interest signals for brand and artist insights.
+# Combined UI selections are mapped alongside the individual preference slugs.
+AESTHETIC_TAG_MAPPING: Dict[str, List[str]] = {
+    "streetwear": ["urn:tag:keyword:style:streetwear"],
+    "techwear": ["urn:tag:keyword:style:techwear"],
+    "minimalist": ["urn:tag:keyword:style:minimalist"],
+    "audiophile": ["urn:tag:keyword:music:audiophile"],
+    "vintage": ["urn:tag:keyword:style:vintage"],
+    "cyberpunk": ["urn:tag:genre:media:cyberpunk"],
+    "dark_academia": ["urn:tag:keyword:style:dark_academia"],
+    "streetwear_audio": [
+        "urn:tag:keyword:style:streetwear",
+        "urn:tag:keyword:style:techwear",
+        "urn:tag:keyword:music:audiophile",
+    ],
+    "cozy_dark_academia": [
+        "urn:tag:keyword:style:minimalist",
+        "urn:tag:keyword:style:vintage",
+        "urn:tag:keyword:style:dark_academia",
+        "urn:tag:keyword:music:audiophile",
+    ],
+    "nightlife_dining": [
+        "urn:tag:genre:media:cyberpunk",
+        "urn:tag:keyword:style:vintage",
+    ],
+    "full_immersion": [
+        "urn:tag:keyword:style:streetwear",
+        "urn:tag:keyword:style:techwear",
+        "urn:tag:keyword:style:minimalist",
+        "urn:tag:keyword:music:audiophile",
+        "urn:tag:keyword:style:vintage",
+        "urn:tag:genre:media:cyberpunk",
+        "urn:tag:keyword:style:dark_academia",
+    ],
+}
 
 POPULAR_LOCATIONS = [
     {"city": "Tokyo, Japan", "label": "Tokyo (Akihabara / Shibuya)"},

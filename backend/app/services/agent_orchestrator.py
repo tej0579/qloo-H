@@ -3,7 +3,12 @@ import asyncio
 from uuid import UUID
 from typing import List, Dict, Any, Optional
 from app.core.logger import logger
-from app.core.constants import QlooEntityType, POPULAR_LOCATIONS, AESTHETIC_PRIORITIES
+from app.core.constants import (
+    QlooEntityType,
+    POPULAR_LOCATIONS,
+    AESTHETIC_PRIORITIES,
+    AESTHETIC_TAG_MAPPING,
+)
 from app.models.schemas_api import (
     ChatRequest,
     ChatResponse,
@@ -180,17 +185,28 @@ class AgentOrchestrator:
         if request.clarification:
             location = request.clarification.location or location
             aesthetic = request.clarification.aesthetic_focus or aesthetic
-        elif session and session.location:
-            location = session.location
+        elif session:
+            location = session.location or location
             aesthetic = session.aesthetic_focus or aesthetic
 
         session_store.update_answers(session_id, location, aesthetic)
+        aesthetic_tag_urns = AESTHETIC_TAG_MAPPING.get(aesthetic, [])
 
         logger.info(f"Executing LootDrop for session {session_id} - Games: {game_names}, Location: {location}, Focus: {aesthetic}")
 
         # Step 3 & 4: Concurrent Qloo Graph Query + Naked LLM Baseline
-        brand_task = qloo_client.get_insights(game_ids, filter_type=QlooEntityType.BRAND.value, take=4)
-        artist_task = qloo_client.get_insights(game_ids, filter_type=QlooEntityType.ARTIST.value, take=4)
+        brand_task = qloo_client.get_insights(
+            game_ids,
+            filter_type=QlooEntityType.BRAND.value,
+            take=4,
+            tag_urns=aesthetic_tag_urns,
+        )
+        artist_task = qloo_client.get_insights(
+            game_ids,
+            filter_type=QlooEntityType.ARTIST.value,
+            take=4,
+            tag_urns=aesthetic_tag_urns,
+        )
         place_task = qloo_client.get_insights(game_ids, filter_type=QlooEntityType.PLACE.value, location_query=location, take=4)
         movie_task = qloo_client.get_insights(game_ids, filter_type=QlooEntityType.MOVIE.value, take=4)
         cliche_task = llm_comparator.generate_cliches(game_names, location)

@@ -166,7 +166,8 @@ class QlooClient:
         seed_entity_ids: List[str],
         filter_type: str,
         location_query: Optional[str] = None,
-        take: int = 5
+        take: int = 5,
+        tag_urns: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """
         Queries /v2/insights for statistical cross-domain taste correlation.
@@ -181,42 +182,45 @@ class QlooClient:
             "take": take
         }
 
+        clean_tags = list(dict.fromkeys(tag for tag in (tag_urns or []) if tag.startswith("urn:tag:")))
+        if clean_tags:
+            params["signal.interests.tags"] = ",".join(clean_tags)
+
         if location_query and filter_type == QlooEntityType.PLACE.value:
             if "global" not in location_query.lower():
                 params["filter.location.query"] = location_query
 
         url = f"{self.base_url}/v2/insights"
 
+        request_variants = [params]
+        if clean_tags:
+            unfiltered_params = params.copy()
+            unfiltered_params.pop("signal.interests.tags", None)
+            request_variants.append(unfiltered_params)
+
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                res = await client.get(url, headers=self.headers, params=params)
-                if res.status_code == 200:
-                    data = res.json()
-                    entities = data.get("results", {}).get("entities", [])
-                    normalized = []
-                    for e in entities:
-                        e_id = e.get("id") or e.get("entity_id") or ""
-                        tags = e.get("tags", [])
-                        tag_names = []
-                        for t in tags:
-                            if isinstance(t, str):
-                                tag_names.append(t)
-                            elif isinstance(t, dict):
-                                tag_names.append(t.get("name") or t.get("id") or "")
-                        normalized_entity = {
-                            "id": e_id,
-                            "entity_id": e_id,
-                            "name": e.get("name", "Unknown"),
-                            "tags": [t for t in tag_names if t][:4],
-                            "properties": e.get("properties", {})
-                        }
-                        affinity = e.get("affinity")
-                        if affinity is not None:
-                            normalized_entity["affinity"] = float(affinity)
-                        normalized.append(normalized_entity)
-                    return {"entities": normalized, "data_source": "qloo_live"}
-                else:
-                    logger.warning(f"Qloo /v2/insights {filter_type} returned HTTP {res.status_code}: {res.text[:120]}")
+                for request_index, request_params in enumerate(request_variants):
+                    try:
+                        res = await client.get(url, headers=self.headers, params=request_params)
+                        if res.status_code != 200:
+                            logger.warning(
+                                f"Qloo /v2/insights {filter_type} returned HTTP {res.status_code}: {res.text[:120]}"
+                            )
+                            continue
+
+                        data = res.json()
+                        entities = data.get("results", {}).get("entities", [])
+                        normalized = self._normalize_insight_entities(entities)
+                        if normalized:
+                            return {"entities": normalized, "data_source": "qloo_live"}
+
+                        if request_index < len(request_variants) - 1:
+                            logger.info(
+                                f"Qloo returned no {filter_type} matches for aesthetic tags; retrying without tags."
+                            )
+                    except Exception as e:
+                        logger.warning(f"Qloo /v2/insights request failed for {filter_type}: {e}")
         except Exception as e:
             logger.error(f"Error querying Qloo /v2/insights: {e}")
 
@@ -225,6 +229,30 @@ class QlooClient:
             "entities": self._get_fallback_insights(seed_entity_ids, filter_type, location_query, take),
             "data_source": "demo_fallback"
         }
+
+    @staticmethod
+    def _normalize_insight_entities(entities: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        normalized = []
+        for entity in entities:
+            entity_id = entity.get("id") or entity.get("entity_id") or ""
+            tag_names = []
+            for tag in entity.get("tags", []):
+                if isinstance(tag, str):
+                    tag_names.append(tag)
+                elif isinstance(tag, dict):
+                    tag_names.append(tag.get("name") or tag.get("id") or "")
+            normalized_entity = {
+                "id": entity_id,
+                "entity_id": entity_id,
+                "name": entity.get("name", "Unknown"),
+                "tags": [tag for tag in tag_names if tag][:4],
+                "properties": entity.get("properties", {})
+            }
+            affinity = entity.get("affinity")
+            if affinity is not None:
+                normalized_entity["affinity"] = float(affinity)
+            normalized.append(normalized_entity)
+        return normalized
 
     def _get_fallback_insights(
         self,

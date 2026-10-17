@@ -24,6 +24,36 @@ IRL LootDrop turns favorite video games into a real-world lifestyle profile. It 
 
 The recommendation source is included in the result payload. Tagged brand and artist queries retry without aesthetic tags when no matches are returned, then use the offline demo catalog if Qloo still has no results.
 
+## Current Branch Build Summary (`vamshi`)
+
+This branch contains an end-to-end demo flow plus backend persistence and source transparency. The main additions are:
+
+- **Game verification:** The backend resolves game names through Qloo `/search`. It only accepts a game ID as pre-resolved when it is a Qloo entity URN or a valid UUID; preset slugs are searched. Search tags are retained for the generated character class.
+- **Personalized Qloo insights:** The city and selected aesthetic feed the recommendation flow. Aesthetic tag URNs are sent with brand and artist insight requests, with an unfiltered retry and offline demo fallback when needed.
+- **Honest recommendations and scores:** Every synthesized drop includes `data_source` (`qloo_live` or `demo_fallback`), category affinity averages for the radar, and an overall affinity score. The dashboard labels live and fallback results distinctly.
+- **IRL Character Class:** The synthesizer combines aesthetic choice and game signals into an `archetype_title`, shown at the top of the Qloo Grounded comparator panel.
+- **IRL Saturday Quest Log:** Each new drop includes four timed steps built from the first returned brand, artist, local place, and film. The dashboard presents these in an expandable timeline.
+- **Split-screen comparison:** Qloo recommendations appear alongside an unassisted LLM baseline. Gemini or OpenAI can provide the baseline when configured; deterministic benchmark examples are available offline.
+- **Persistent sessions:** Conversation state and generated drops are stored in SQLite at `backend/sessions.db` and survive backend restarts.
+- **Frontend helpers:** `web/src/lib/api.ts` centralizes backend calls and `web/src/lib/utils.ts` provides shared formatting and class-name helpers. The root `.gitignore` keeps these source files trackable.
+
+### Main request flow
+
+1. The user submits one or more favorite games.
+2. FastAPI resolves the games and asks for a city and aesthetic preference.
+3. The user submits the clarifications; the orchestrator requests Qloo insights across brands, artists, places, and films while generating the comparison baseline.
+4. The synthesizer returns the recommendations, source label, affinity metrics, character class, and four-step quest log.
+5. The Next.js dashboard renders the split-screen comparison, radar, recommendation categories, and expandable quest.
+
+### Verification performed for this branch
+
+```bash
+python3 -m unittest discover -s backend/tests -v
+cd web && npm run build
+```
+
+The backend smoke suite covers SQLite persistence, strict game ID handling, score and source synthesis, character class generation, and quest recommendations. The frontend production build completes successfully.
+
 ## 🏆 The Core Problem & The Qloo Difference
 
 | Scenario | Standard Unassisted LLM (Without Qloo) | IRL LootDrop (Powered by Qloo Taste Graph) |
@@ -214,7 +244,10 @@ The frontend is at `http://localhost:3000`; the FastAPI docs are at `http://loca
 ---
 
 ## 🏆 Key Submission Features
-1. **The Split-Screen Comparator (Judging Centerpiece)**: Explicitly contrasts ungrounded LLM hallucinations against verified Qloo cultural intelligence side-by-side.
-2. **Multi-Turn Agent Dialogue State Machine**: Haults for the 2 mandatory clarification questions (spatial location and aesthetic priority) to deliver surgically grounded recommendations.
-3. **Resilient Graph Pipeline**: Caches and normalizes responses so presentations and evaluations never fail.
-4. **Multi-Axis Affinity Radar**: Visualizes user taste distribution across fashion, audio, physical venues, and mood depth.
+
+1. **Split-screen comparator:** Contrasts the unassisted LLM baseline with Qloo-backed or clearly labeled offline demo recommendations.
+2. **Multi-turn dialogue:** Collects favorite games, a scouting city, and an aesthetic preference before generating a drop.
+3. **Resilient Qloo requests:** Normalizes insight results, retries brand and artist queries without aesthetic tags when needed, and falls back to the offline demo catalog.
+4. **Affinity radar and overall score:** Calculates category metrics from returned recommendation scores.
+5. **Actionable demo output:** Adds a generated IRL Character Class and a four-step Saturday quest connecting fashion, music, a local venue, and film.
+6. **Persistent sessions:** Stores conversation and drop data in SQLite across server restarts.

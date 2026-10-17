@@ -16,6 +16,16 @@ async def run_tests():
     assert res.turn == 0
     print("✓ Test 1 Passed: Off-topic query rejected.")
 
+    # Test 1B: Step 0 Greeting & Meta questions (Must stay at Turn 0!)
+    print("\n[TEST 1B] Step 0 Greeting & Meta check (Must stay at Turn 0)...")
+    res_hi = await videogame_bot.process_turn("test_hi", "hi")
+    assert res_hi.turn == 0, f"Expected turn 0 for 'hi', got {res_hi.turn}"
+    assert "Hey there" in res_hi.message
+
+    res_who = await videogame_bot.process_turn("test_who", "who are you bro")
+    assert res_who.turn == 0, f"Expected turn 0 for 'who are you bro', got {res_who.turn}"
+    print("✓ Test 1B Passed: 'hi' and 'who are you bro' correctly stay at Turn 0 without advancing steps.")
+
     # Test 2: Full 4-Turn Calibration Loop
     print("\n[TEST 2] Running Full 4-Turn Qloo Loop...")
     sess_id = "test_loop"

@@ -6,9 +6,10 @@ import { Badge } from "@/components/ui/badge";
 interface ComparatorSplitProps {
   comparator: ComparatorPayload;
   dataSource: "qloo_live" | "demo_fallback";
+  archetypeTitle?: string;
 }
 
-export const ComparatorSplit: React.FC<ComparatorSplitProps> = ({ comparator, dataSource }) => {
+export const ComparatorSplit: React.FC<ComparatorSplitProps> = ({ comparator, dataSource, archetypeTitle }) => {
   const hasLiveQlooData = dataSource === "qloo_live";
   return (
     <div className="space-y-6">
@@ -101,6 +102,15 @@ export const ComparatorSplit: React.FC<ComparatorSplitProps> = ({ comparator, da
         {/* Right Column: With Qloo / Taste Graph Reality */}
         <div className="rounded-2xl bg-cyber-card/90 border border-cyber-cyan/40 p-5 space-y-4 shadow-neon-cyan/15 relative overflow-hidden">
           <div className="absolute top-0 right-0 transform translate-x-4 -translate-y-4 w-32 h-32 bg-cyber-cyan/10 rounded-full blur-2xl pointer-events-none" />
+
+          <div className="relative rounded-xl border border-purple-400/30 bg-purple-500/10 px-4 py-3">
+            <div className="text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-purple-300">
+              IRL Character Class
+            </div>
+            <div className="mt-1 text-xl sm:text-2xl font-black tracking-tight text-white">
+              {archetypeTitle || "Cultural Wayfarer"}
+            </div>
+          </div>
 
           {/* Column Header */}
           <div className="flex items-center justify-between pb-3 border-b border-cyber-cyan/30">

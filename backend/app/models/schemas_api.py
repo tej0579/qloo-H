@@ -11,6 +11,7 @@ class UserGameSelection(BaseModel):
     name: str = Field(..., description="Display title of the video game")
     types: List[str] = Field(default_factory=lambda: ["urn:entity:videogame"])
     entity_id: Optional[str] = None
+    tags: List[str] = Field(default_factory=list)
 
     class Config:
         populate_by_name = True
@@ -62,11 +63,19 @@ class LootDropCategory(BaseModel):
     description: str
     items: List[LootDropItem] = Field(default_factory=list)
 
+class QuestLogStep(BaseModel):
+    time: str
+    title: str
+    recommendation: str
+    description: str
+
 class LootDropPayload(BaseModel):
     session_id: str
     seed_games: List[UserGameSelection]
     persona_title: str
     persona_description: str
+    archetype_title: str = ""
+    quest_log: List[QuestLogStep] = Field(default_factory=list)
     location: Optional[str] = None
     aesthetic_focus: Optional[str] = None
     categories: List[LootDropCategory] = Field(default_factory=list)

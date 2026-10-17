@@ -95,13 +95,18 @@ class AgentOrchestrator:
                         id=top["id"],
                         name=top["name"],
                         entity_id=top["id"],
-                        types=top.get("types", [QlooEntityType.VIDEOGAME.value])
+                        types=top.get("types", [QlooEntityType.VIDEOGAME.value]),
+                        tags=self._normalize_game_tags(top.get("tags", [])),
                     ))
                 else:
                     verified_games.append(UserGameSelection(
                         id=f"fallback-{uuid.uuid4().hex[:6]}",
                         name=g.name,
-                        types=[QlooEntityType.VIDEOGAME.value]
+                        types=[QlooEntityType.VIDEOGAME.value],
+                        tags=self._normalize_game_tags(next(
+                            (result.get("tags", []) for result in search_results if result.get("name") == g.name),
+                            [],
+                        )),
                     ))
 
         # Save verified games to session store
@@ -162,6 +167,18 @@ class AgentOrchestrator:
             return str(UUID(entity_id)) == entity_id.lower()
         except ValueError:
             return False
+
+    @staticmethod
+    def _normalize_game_tags(tags: Any) -> List[str]:
+        normalized = []
+        for tag in tags or []:
+            if isinstance(tag, str):
+                normalized.append(tag)
+            elif isinstance(tag, dict):
+                name = tag.get("name") or tag.get("id")
+                if name:
+                    normalized.append(str(name))
+        return normalized[:5]
 
     async def _handle_execute_drop(self, session_id: str, request: ChatRequest) -> ChatResponse:
         session = session_store.get(session_id)

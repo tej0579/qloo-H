@@ -53,6 +53,7 @@ class EntityVerificationSmokeTests(unittest.IsolatedAsyncioTestCase):
                     "id": "a4b7d201-9988-4f11-ae77-0099118833aa",
                     "name": "Cyberpunk 2077",
                     "types": ["urn:entity:videogame"],
+                    "tags": ["Cyberpunk", {"name": "Neon Noir"}],
                 }
             ]
         )
@@ -66,6 +67,7 @@ class EntityVerificationSmokeTests(unittest.IsolatedAsyncioTestCase):
 
         search.assert_awaited_once()
         self.assertEqual(response.verified_games[0].name, "Cyberpunk 2077")
+        self.assertEqual(response.verified_games[0].tags, ["Cyberpunk", "Neon Noir"])
 
 
 class LootSynthesizerSmokeTests(unittest.TestCase):
@@ -98,6 +100,16 @@ class LootSynthesizerSmokeTests(unittest.TestCase):
         payload = self.build_payload("demo_fallback")
         self.assertEqual(payload.data_source, "demo_fallback")
         self.assertTrue(payload.comparator.summary_verdict.startswith("Offline"))
+
+    def test_character_class_and_quest_use_top_recommendations(self):
+        payload = self.build_payload("qloo_live")
+
+        self.assertEqual(payload.archetype_title, "Cybernetic Street-Tactician")
+        self.assertEqual(len(payload.quest_log), 4)
+        self.assertEqual(
+            [step.recommendation for step in payload.quest_log],
+            ["Brand One", "Artist One", "Place One", "Film One"],
+        )
 
 
 if __name__ == "__main__":

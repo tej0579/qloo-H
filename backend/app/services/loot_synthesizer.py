@@ -9,7 +9,8 @@ from app.models.schemas_api import (
     ComparatorPayload,
     ComparatorItem,
     ComparatorComparison,
-    RadarMetric
+    RadarMetric,
+    QuestLogStep,
 )
 
 class LootSynthesizer:
@@ -33,6 +34,8 @@ class LootSynthesizer:
     ) -> LootDropPayload:
         game_names = [g.name for g in seed_games]
         persona_title, persona_desc = self._generate_persona(game_names, aesthetic_focus)
+        game_tags = [tag for game in seed_games for tag in game.tags]
+        archetype_title = self._generate_archetype_title(aesthetic_focus, game_names, game_tags)
 
         # 1. Apparel Category
         brand_items = []
@@ -211,12 +214,15 @@ class LootSynthesizer:
             brand_items + artist_items + place_items + movie_items,
             "affinity_score"
         )
+        quest_log = self._build_quest_log(brand_items, artist_items, place_items, movie_items, location)
 
         return LootDropPayload(
             session_id=session_id,
             seed_games=seed_games,
             persona_title=persona_title,
             persona_description=persona_desc,
+            archetype_title=archetype_title,
+            quest_log=quest_log,
             location=location,
             aesthetic_focus=aesthetic_focus,
             categories=categories,
@@ -226,6 +232,78 @@ class LootSynthesizer:
             overall_match_score=overall_match_score,
             created_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         )
+
+    @staticmethod
+    def _generate_archetype_title(aesthetic_focus: str, game_names: List[str], game_tags: List[str]) -> str:
+        signals = " ".join([*game_tags[:8], *game_names]).casefold()
+        if any(signal in signals for signal in ("cyber", "neon", "dystop", "transhuman", "tech")):
+            bridge = "Cybernetic"
+        elif any(signal in signals for signal in ("gothic", "dark", "folklore", "fantasy", "souls")):
+            bridge = "Gothic"
+        elif any(signal in signals for signal in ("urban", "city", "jazz", "vinyl", "heist", "tokyo", "noir")):
+            bridge = "Metropolis"
+        elif any(signal in signals for signal in ("ambient", "audio", "instrumental", "music")):
+            bridge = "Analog"
+        else:
+            bridge = "Cultural"
+
+        archetype_by_aesthetic = {
+            "streetwear_audio": "Street-Tactician",
+            "streetwear": "Street-Tactician",
+            "techwear": "Signal Runner",
+            "minimalist": "Quiet Modernist",
+            "audiophile": "Vinyl Flâneur",
+            "vintage": "Archive Seeker",
+            "cyberpunk": "Neon Nomad",
+            "dark_academia": "Avant-Garde Wanderer",
+            "cozy_dark_academia": "Avant-Garde Wanderer",
+            "nightlife_dining": "Vinyl Flâneur",
+            "full_immersion": "Cultural Wayfarer",
+        }
+        archetype = archetype_by_aesthetic.get(aesthetic_focus.casefold(), "Cultural Wayfarer")
+        return f"{bridge} {archetype}"
+
+    @staticmethod
+    def _build_quest_log(
+        brand_items: List[LootDropItem],
+        artist_items: List[LootDropItem],
+        place_items: List[LootDropItem],
+        movie_items: List[LootDropItem],
+        location: str,
+    ) -> List[QuestLogStep]:
+        brand = brand_items[0].name if brand_items else "No brand match available"
+        artist = artist_items[0].name if artist_items else "No artist match available"
+        place = place_items[0] if place_items else None
+        movie = movie_items[0].name if movie_items else "No film match available"
+        place_name = place.name if place else "No local venue match available"
+        place_location = place.location if place and place.location else location
+
+        return [
+            QuestLogStep(
+                time="2:00 PM",
+                title="Afternoon Gear",
+                recommendation=brand,
+                description=f"Build your look around {brand} before heading out.",
+            ),
+            QuestLogStep(
+                time="4:30 PM",
+                title="Transit Soundtrack",
+                recommendation=artist,
+                description=f"Queue {artist} for the trip across {location}.",
+            ),
+            QuestLogStep(
+                time="7:00 PM",
+                title="Evening Spot",
+                recommendation=place_name,
+                description=f"Spend the evening at {place_name} ({place_location}).",
+            ),
+            QuestLogStep(
+                time="10:30 PM",
+                title="Late Night Watch",
+                recommendation=movie,
+                description=f"Close the day with {movie}.",
+            ),
+        ]
 
     @staticmethod
     def _score(item: Dict[str, Any]) -> float | None:

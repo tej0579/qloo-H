@@ -17,6 +17,10 @@ import {
   Database,
   Gamepad2,
   Compass,
+  ChevronDown,
+  ChevronUp,
+  Clock3,
+  Route,
 } from "lucide-react";
 
 interface LootDashboardProps {
@@ -26,6 +30,7 @@ interface LootDashboardProps {
 
 export const LootDashboard: React.FC<LootDashboardProps> = ({ payload, onReset }) => {
   const [copied, setCopied] = useState(false);
+  const [questExpanded, setQuestExpanded] = useState(false);
 
   const handleShare = () => {
     const text = `🎮 IRL Loot Drop for ${payload.seed_games.map((g) => g.name).join(" + ")}:\nPersona: ${payload.persona_title}\nTerritory: ${payload.location}\nPowered by Qloo Taste Intelligence.`;
@@ -167,7 +172,57 @@ export const LootDashboard: React.FC<LootDashboardProps> = ({ payload, onReset }
             Split-Screen Taste Comparator
           </h2>
         </div>
-        <ComparatorSplit comparator={payload.comparator} dataSource={payload.data_source} />
+        <ComparatorSplit
+          comparator={payload.comparator}
+          dataSource={payload.data_source}
+          archetypeTitle={payload.archetype_title || payload.persona_title}
+        />
+      </section>
+
+      <section className="rounded-2xl border border-amber-400/30 bg-gradient-to-br from-amber-950/30 via-zinc-900/90 to-cyber-card/90 shadow-[0_0_24px_rgba(251,191,36,0.08)] overflow-hidden">
+        <button
+          type="button"
+          aria-expanded={questExpanded}
+          onClick={() => setQuestExpanded((expanded) => !expanded)}
+          className="w-full flex items-center justify-between gap-4 p-5 sm:p-6 text-left hover:bg-amber-400/5 transition-colors"
+        >
+          <span className="flex items-center gap-3">
+            <span className="rounded-xl bg-amber-400/10 border border-amber-300/30 p-2.5 text-amber-300">
+              <Route className="w-5 h-5" />
+            </span>
+            <span>
+              <span className="block text-lg font-black text-zinc-100">⚡ IRL Saturday Quest Log</span>
+              <span className="block mt-1 text-xs text-zinc-400">A four-step day woven from your recommendations in {payload.location || "your city"}.</span>
+            </span>
+          </span>
+          {questExpanded ? <ChevronUp className="w-5 h-5 text-amber-300 shrink-0" /> : <ChevronDown className="w-5 h-5 text-amber-300 shrink-0" />}
+        </button>
+
+        {questExpanded && (
+          <div className="px-5 pb-6 sm:px-6">
+            {payload.quest_log?.length ? (
+              <ol className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {payload.quest_log.map((step, index) => (
+                  <li key={`${step.time}-${step.title}`} className="relative rounded-xl border border-zinc-700/80 bg-zinc-950/70 p-4">
+                    <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-wider text-amber-300">
+                      <Clock3 className="w-3.5 h-3.5" />
+                      <span>{step.time}</span>
+                      <span className="text-zinc-600">/</span>
+                      <span className="text-zinc-300">Step {index + 1}</span>
+                    </div>
+                    <h3 className="mt-2 text-sm font-bold text-zinc-100">{step.title}</h3>
+                    <div className="mt-1 text-base font-black text-cyber-cyan">{step.recommendation}</div>
+                    <p className="mt-2 text-xs leading-relaxed text-zinc-400">{step.description}</p>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="rounded-xl border border-zinc-700 bg-zinc-950/70 p-4 text-sm text-zinc-400">
+                This saved drop predates the quest log. Generate a new drop to build its four-step itinerary.
+              </p>
+            )}
+          </div>
+        )}
       </section>
 
       {/* Visualizer & Persona Radar Section */}

@@ -18,6 +18,13 @@ export interface LootDropCategory {
   items: LootDropItem[];
 }
 
+export interface QuestLogStep {
+  time: string;
+  title: string;
+  recommendation: string;
+  description: string;
+}
+
 export interface ComparatorItem {
   category: string;
   item_name: string;
@@ -52,6 +59,8 @@ export interface LootDropPayload {
   seed_games: { id: string; name: string; types: string[] }[];
   persona_title: string;
   persona_description: string;
+  archetype_title?: string;
+  quest_log?: QuestLogStep[];
   location?: string;
   aesthetic_focus?: string;
   categories: LootDropCategory[];

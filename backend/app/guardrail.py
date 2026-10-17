@@ -1,15 +1,22 @@
 import re
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, List
 
 GREETING_WORDS = {
     "hi", "hello", "hey", "hola", "yo", "sup", "greetings", "good morning",
     "good afternoon", "good evening", "howdy", "wassup", "what's up", "whats up",
-    "hey there", "hi there", "hello there"
+    "hey there", "hi there", "hello there", "no hi"
 }
 
-META_PATTERNS = [
-    r"\b(who are you|what are you|what do you do|what can you do|help|who made you|how does this work|what is this|tell me about yourself)\b",
-    r"\b(who created you|are you an ai|are you a bot|what is qloo|what are you bro|who are you bro)\b"
+QUESTION_STARTERS = (
+    "who", "what", "where", "when", "why", "how", "are you", "you are",
+    "is it", "can you", "could you", "do you", "tell me", "explain",
+    "which", "whose", "whom"
+)
+
+CONVERSATIONAL_KEYWORDS = [
+    r"\b(where are you from|where do you live|what country|who made you|who created you)\b",
+    r"\b(who are you|what are you|what can you do|what do you do|help me|tell me about yourself)\b",
+    r"\b(you are.*bot|are you.*bot|are you.*ai|gaming bot|game bot|ai bot|chatbot)\b"
 ]
 
 OFF_TOPIC_PATTERNS = [
@@ -23,7 +30,30 @@ OFF_TOPIC_PATTERNS = [
 ]
 
 VAGUE_RESPONSES = {
-    "yes", "no", "yeah", "nope", "ok", "okay", "k", "sure", "fine", "give", "tell", "show", "what", "idk", "cool", "nice", "maybe", "why"
+    "yes", "no", "yeah", "nope", "ok", "okay", "k", "sure", "fine", "give",
+    "tell", "show", "what", "idk", "cool", "nice", "maybe", "why", "idk", "dunno"
+}
+
+TURN_1_KEYWORDS = {
+    "combat", "mechanic", "mechanics", "parry", "parrying", "reflex", "reflexes",
+    "timing", "lore", "story", "world", "atmosphere", "atmospheric", "exploration",
+    "explore", "build", "builds", "rpg", "progression", "difficulty", "hard", "boss",
+    "bosses", "gameplay", "action", "fight", "fighting", "shooting", "shooter", "stealth",
+    "tactical", "turn-based", "hack and slash", "guns", "melee", "magic", "skills"
+}
+
+TURN_2_KEYWORDS = {
+    "gothic", "dark", "gritty", "realism", "realistic", "3d", "2d", "indie", "stylized",
+    "isometric", "pixel", "pixel art", "art", "vibes", "vibe", "sci-fi", "scifi", "cyberpunk",
+    "fantasy", "dystopian", "anime", "minimalist", "hand-drawn", "fpp", "fps", "first person",
+    "tpp", "third person", "retro", "colorful", "aesthetic", "ruins", "decaying"
+}
+
+TURN_3_KEYWORDS = {
+    "pc", "ps5", "playstation", "ps4", "ps3", "ps2", "xbox", "series x", "switch",
+    "nintendo", "steam deck", "deck", "portable", "handheld", "console", "hours", "hour",
+    "hrs", "hr", "campaign", "short", "long", "epic", "quick", "tight", "open world",
+    "focused", "massive", "15", "20", "25", "30", "40", "50", "60", "80", "100"
 }
 
 def extract_game_title(query: str) -> str:
@@ -40,6 +70,34 @@ def extract_game_title(query: str) -> str:
     ).strip().strip("\"'.,")
     return cleaned if cleaned else clean
 
+def is_conversational_or_question(clean_lower: str) -> bool:
+    if clean_lower.endswith("?") or clean_lower.endswith("right"):
+        return True
+
+    for starter in QUESTION_STARTERS:
+        if clean_lower.startswith(starter):
+            return True
+
+    for pattern in CONVERSATIONAL_KEYWORDS:
+        if re.search(pattern, clean_lower):
+            return True
+
+    return False
+
+def check_turn_keyword_relevance(clean_lower: str, current_turn: int) -> bool:
+    words = set(re.findall(r"\b[a-zA-Z0-9_\-']+\b", clean_lower))
+    # Handle composite phrases like 'play station'
+    if "play station" in clean_lower or "first person" in clean_lower or "third person" in clean_lower or "open world" in clean_lower or "steam deck" in clean_lower:
+        return True
+
+    if current_turn == 1:
+        return bool(words & TURN_1_KEYWORDS)
+    elif current_turn == 2:
+        return bool(words & TURN_2_KEYWORDS)
+    elif current_turn >= 3:
+        return bool(words & TURN_3_KEYWORDS)
+    return True
+
 def classify_user_prompt(
     query: str,
     current_turn: int = 0,
@@ -51,8 +109,8 @@ def classify_user_prompt(
     - RESET
     - OFF_TOPIC (Step 0 Guardrail)
     - GREETING
-    - META (Questions about the bot)
-    - VAGUE (Gibberish / single non-answers during calibration)
+    - QUESTION / META (Questions about the bot or where it's from)
+    - VAGUE (Gibberish / single non-answers / unrelated to turn topic)
     - GAME_ANCHOR (Turn 0 game seed)
     - VALID_ANSWER (Turns 1-3 calibration answer)
     """
@@ -82,7 +140,7 @@ def classify_user_prompt(
                 "message": "⚠️ **Domain Guardrail**: I am strictly a Video Game Cultural Intelligence agent. Please provide a video game title, franchise, or gaming preference to begin."
             }
 
-    # 4. Greeting Check (e.g. 'hi', 'hello', 'hey')
+    # 4. Greeting Check (e.g. 'hi', 'hello', 'hey', 'no hi')
     is_greeting = clean_lower in GREETING_WORDS or (len(words) <= 2 and any(w in GREETING_WORDS for w in words))
     if is_greeting:
         if current_turn == 0:
@@ -98,44 +156,47 @@ def classify_user_prompt(
             return {
                 "type": "GREETING_IN_LOOP",
                 "message": (
-                    f"Hey! We're currently in the middle of calibrating your taste for **{anchor_name or 'your game'}**.\n"
+                    f"Hello! We're currently in the middle of calibrating your taste for **{anchor_name or 'your game'}**.\n"
                     "Please answer the question above or click one of the options to continue!"
                 )
             }
 
-    # 5. Meta Questions (e.g. 'who are you bro', 'what can you do')
-    for pattern in META_PATTERNS:
-        if re.search(pattern, clean_lower):
-            if current_turn == 0:
-                return {
-                    "type": "META",
-                    "message": (
-                        "I am an agent powered by **Qloo's Cultural Taste Graph** (250M+ entities).\n\n"
-                        "Instead of relying on LLM clichés (which just recommend the same 3 famous games to everyone), "
-                        "I use Qloo's mathematical correlation matrix to calibrate your gameplay mechanics, visual aesthetics, "
-                        "and platform needs.\n\n"
-                        "Name a video game you enjoy to start!"
-                    )
-                }
-            else:
-                return {
-                    "type": "META_IN_LOOP",
-                    "message": (
-                        f"I'm your Qloo Cultural Intelligence Agent! We're currently in Step {current_turn} "
-                        f"calibrating your taste profile for **{anchor_name or 'your game'}**.\n\n"
-                        "To proceed, please select one of the options above or tell me what style you prefer."
-                    )
-                }
+    # 5. Question or Conversational Remark (e.g. 'where are you from', 'you are gaming bot right', 'who are you')
+    if is_conversational_or_question(clean_lower):
+        if "where are you from" in clean_lower or "where do you live" in clean_lower:
+            reply = "I'm an AI agent built for the **Qloo Hackathon**, running locally and powered by Qloo's global Cultural Taste Graph (250M+ entities)!"
+        elif "bot" in clean_lower or "who are you" in clean_lower or "what are you" in clean_lower:
+            reply = "Yes, I am the **Qloo Videogame Cultural Intelligence Agent**! I specialize strictly in gaming cultural correlation (`urn:entity:videogame`)."
+        else:
+            reply = "I'm your Qloo cultural gaming agent. I map your gameplay mechanics and aesthetic taste against Qloo's 250M+ entity graph."
 
-    # 6. Vague / Gibberish Check during calibration (Turn 1, 2, 3)
+        if current_turn == 0:
+            return {
+                "type": "META",
+                "message": f"{reply}\n\nTo start scouting, tell me a video game you enjoy (e.g. **Elden Ring**, **Cyberpunk 2077**, **Hades**, **DOOM**)!"
+            }
+        else:
+            return {
+                "type": "META_IN_LOOP",
+                "message": f"{reply}\n\nWe're currently in Step {current_turn} calibrating your preferences for **{anchor_name or 'your game'}**."
+            }
+
+    # 6. Calibration Step Validation (Turns 1, 2, 3)
     if current_turn > 0:
-        if clean_lower in VAGUE_RESPONSES or (len(words) == 1 and len(clean) < 4):
+        # Check if vague response ('yes', 'no', 'give', 'f', 'ps7')
+        is_vague = clean_lower in VAGUE_RESPONSES or len(clean) < 2
+        is_relevant = check_turn_keyword_relevance(clean_lower, current_turn)
+
+        if is_vague or not is_relevant:
+            step_hints = {
+                1: "Please choose your preferred gameplay focus (e.g. tight combat mechanics vs environmental lore).",
+                2: "Please choose your preferred visual art style (e.g. gritty 3D Gothic realism vs stylized indie worlds).",
+                3: "Please choose your platform (PC, PS5, Xbox, Switch) and campaign length (15-25h vs 80+h open world)."
+            }
+            hint = step_hints.get(current_turn, "Please choose one of the options above.")
             return {
                 "type": "VAGUE",
-                "message": (
-                    "Could you be a bit more specific? Please select one of the option chips above, "
-                    "or describe your preference in a few words so I can query Qloo's graph accurately."
-                )
+                "message": f"Could you be a bit more specific? {hint}"
             }
 
     # 7. Valid Turn 0 Game Anchor
@@ -152,7 +213,6 @@ def classify_user_prompt(
         "answer": clean
     }
 
-# Backward compatibility alias
 def check_guardrail(query: str) -> Tuple[bool, Optional[str]]:
     res = classify_user_prompt(query, current_turn=0)
     if res["type"] == "OFF_TOPIC":

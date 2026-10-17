@@ -51,6 +51,29 @@ FALLBACK_CATALOG: Dict[str, Dict[str, Any]] = {
     }
 }
 
+import re
+
+STOP_WORDS = {
+    "a", "an", "the", "is", "are", "was", "were", "you", "your", "i", "me", "my",
+    "he", "she", "it", "they", "we", "us", "who", "what", "where", "when", "why",
+    "how", "from", "in", "on", "at", "to", "for", "of", "with", "about", "by",
+    "bro", "dude", "bot", "right", "yeah", "no", "yes", "not", "game", "games"
+}
+
+def is_title_match(query: str, candidate_name: str) -> bool:
+    clean_q = query.lower().strip()
+    clean_cand = candidate_name.lower().strip()
+
+    if clean_q == clean_cand or clean_q in clean_cand or clean_cand in clean_q:
+        return True
+
+    content_words = [w for w in re.findall(r"\b[a-zA-Z0-9]+\b", clean_q) if w not in STOP_WORDS]
+    if not content_words:
+        return False
+
+    matches = sum(1 for w in content_words if w in clean_cand)
+    return (matches / len(content_words)) >= 0.5
+
 async def search_videogame(query: str) -> Optional[Dict[str, Any]]:
     """
     Calls Qloo API: GET /search?query={game}&type=urn:entity:videogame
@@ -70,11 +93,15 @@ async def search_videogame(query: str) -> Optional[Dict[str, Any]]:
                     if not types and item.get("type"):
                         types = [item.get("type")]
                     if any("videogame" in str(t).lower() for t in types):
+                        name = item.get("name", "")
+                        # Strictly verify the returned game title actually matches the query
+                        if not is_title_match(clean, name):
+                            continue
                         raw_tags = item.get("tags", [])
                         tags = [t.get("name") if isinstance(t, dict) else str(t) for t in raw_tags if (t.get("name") if isinstance(t, dict) else str(t))][:5]
                         return {
                             "id": item.get("entity_id") or item.get("id"),
-                            "name": item.get("name"),
+                            "name": name,
                             "tags": tags if tags else ["Action", "Adventure", "Immersive"]
                         }
     except Exception as e:

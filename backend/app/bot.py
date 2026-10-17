@@ -140,7 +140,7 @@ class VideogameBot:
                 turn=session.turn,
                 status="SUCCESS",
                 is_rollback=False,
-                message=f"{cls['message']}\n\n**{last_cp.question if last_cp else 'Please select your preference:'}**",
+                message=f"{cls['message']}\n\nPlease select one of the options below to continue calibration:",
                 counter_prompt=last_cp,
                 qloo_data={"anchor": session.anchor_game} if session.anchor_game else None
             )

@@ -117,6 +117,20 @@ class VideogameBot:
                 )
             )
 
+        # 3.5 Genre Scouting at Turn 0 (STAY AT TURN 0)
+        if p_type == "GENRE_SCOUT":
+            return BotResponse(
+                session_id=session_id,
+                turn=0,
+                status="SUCCESS",
+                is_rollback=False,
+                message=cls["message"],
+                counter_prompt=CounterPrompt(
+                    question=f"Select an anchor to calibrate {cls.get('label', 'this genre')}:",
+                    options=cls.get("anchors", ["Cyberpunk 2077", "DOOM Eternal", "BioShock Infinite", "Half-Life 2"])
+                )
+            )
+
         # 4. Greetings, Meta Questions, or Vague input during Calibration (STAY AT CURRENT TURN)
         if p_type in ("GREETING_IN_LOOP", "META_IN_LOOP", "VAGUE"):
             last_cp = None

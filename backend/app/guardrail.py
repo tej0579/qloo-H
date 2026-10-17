@@ -56,6 +56,65 @@ TURN_3_KEYWORDS = {
     "focused", "massive", "15", "20", "25", "30", "40", "50", "60", "80", "100"
 }
 
+GENRE_SCOUT_MAP = {
+    "fpp": {
+        "label": "First-Person Perspective (FPP / FPS)",
+        "anchors": ["Cyberpunk 2077", "DOOM Eternal", "BioShock Infinite", "Half-Life 2"]
+    },
+    "fps": {
+        "label": "First-Person Shooter (FPS / FPP)",
+        "anchors": ["DOOM Eternal", "Cyberpunk 2077", "BioShock Infinite", "Half-Life 2"]
+    },
+    "tpp": {
+        "label": "Third-Person Perspective (TPP)",
+        "anchors": ["Elden Ring", "The Witcher 3: Wild Hunt", "God of War", "Red Dead Redemption 2"]
+    },
+    "rpg": {
+        "label": "Role-Playing Games (RPG)",
+        "anchors": ["Elden Ring", "Baldur's Gate 3", "The Witcher 3: Wild Hunt", "Persona 5"]
+    },
+    "soulslike": {
+        "label": "Souls-like / Action RPG",
+        "anchors": ["Elden Ring", "Dark Souls III", "Bloodborne", "Lies of P"]
+    },
+    "souls": {
+        "label": "Souls-like / Action RPG",
+        "anchors": ["Elden Ring", "Dark Souls III", "Bloodborne", "Lies of P"]
+    },
+    "horror": {
+        "label": "Survival Horror",
+        "anchors": ["Resident Evil 4", "Dead Space", "Silent Hill 2", "Alien: Isolation"]
+    },
+    "open world": {
+        "label": "Open World Exploration",
+        "anchors": ["Elden Ring", "Red Dead Redemption 2", "Grand Theft Auto V", "The Witcher 3: Wild Hunt"]
+    },
+    "roguelike": {
+        "label": "Roguelike / Action",
+        "anchors": ["Hades", "Dead Cells", "Returnal", "The Binding of Isaac"]
+    },
+    "action": {
+        "label": "Action / Hack and Slash",
+        "anchors": ["Devil May Cry 5", "God of War", "Sekiro: Shadows Die Twice", "Hades"]
+    },
+    "stealth": {
+        "label": "Stealth & Infiltration",
+        "anchors": ["Metal Gear Solid V", "Dishonored 2", "Hitman 3", "Deus Ex: Human Revolution"]
+    },
+    "racing": {
+        "label": "Racing & Driving",
+        "anchors": ["Forza Horizon 5", "Gran Turismo 7", "Need for Speed Unbound", "F1 23"]
+    },
+    "coop": {
+        "label": "Cooperative Multiplayer",
+        "anchors": ["It Takes Two", "Deep Rock Galactic", "Helldivers 2", "Portal 2"]
+    },
+    "co-op": {
+        "label": "Cooperative Multiplayer",
+        "anchors": ["It Takes Two", "Deep Rock Galactic", "Helldivers 2", "Portal 2"]
+    }
+}
+
 def extract_game_title(query: str) -> str:
     """
     Cleans user input to isolate the game title.
@@ -71,6 +130,11 @@ def extract_game_title(query: str) -> str:
     return cleaned if cleaned else clean
 
 def is_conversational_or_question(clean_lower: str) -> bool:
+    words = clean_lower.split()
+    # Single word question starters like 'why', 'what' alone are vague calibration inputs, not full questions
+    if len(words) <= 1 and words and words[0] in {"why", "what", "who", "how", "when", "where"}:
+        return False
+
     if clean_lower.endswith("?") or clean_lower.endswith("right"):
         return True
 
@@ -180,6 +244,23 @@ def classify_user_prompt(
                 "type": "META_IN_LOOP",
                 "message": f"{reply}\n\nWe're currently in Step {current_turn} calibrating your preferences for **{anchor_name or 'your game'}**."
             }
+
+    # 5.5 Genre Scouting at Turn 0 (e.g. 'fpp games', 'suggest horror games', 'rpg')
+    if current_turn == 0:
+        for genre_key, genre_info in GENRE_SCOUT_MAP.items():
+            pattern = rf"\b{re.escape(genre_key)}\b"
+            if re.search(pattern, clean_lower):
+                genre_intent = any(w in clean_lower for w in ["game", "games", "suggest", "recommend", "looking for", "best", "some", "interested in", "like"]) or len(words) <= 3
+                if genre_intent:
+                    return {
+                        "type": "GENRE_SCOUT",
+                        "label": genre_info["label"],
+                        "anchors": genre_info["anchors"],
+                        "message": (
+                            f"You're exploring **{genre_info['label']}**!\n\n"
+                            "To calibrate Qloo's taste graph, pick an anchor game below or name your favorite:"
+                        )
+                    }
 
     # 6. Calibration Step Validation (Turns 1, 2, 3)
     if current_turn > 0:

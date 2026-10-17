@@ -57,6 +57,7 @@ Format clearly with bullet points.
             return {
                 "text": llm_text,
                 "candidates": candidates[:3],
+                "recommendations": candidates[:3],
                 "anchor": anchor
             }
         except Exception as e:
@@ -92,5 +93,6 @@ A generic LLM without Qloo's taste graph simply recommends the most famous bests
     return {
         "text": synthesis_markdown,
         "candidates": top_3,
+        "recommendations": top_3,
         "anchor": anchor
     }

@@ -1,4 +1,5 @@
 import os
+import re
 import httpx
 from typing import Optional, Dict, Any, List
 from dotenv import load_dotenv
@@ -51,7 +52,69 @@ FALLBACK_CATALOG: Dict[str, Dict[str, Any]] = {
     }
 }
 
-import re
+GAME_ALIASES: Dict[str, str] = {
+    "gta": "Grand Theft Auto",
+    "gta 5": "Grand Theft Auto V",
+    "gta v": "Grand Theft Auto V",
+    "gta iv": "Grand Theft Auto IV",
+    "gta 4": "Grand Theft Auto IV",
+    "gta sa": "Grand Theft Auto: San Andreas",
+    "gta san andreas": "Grand Theft Auto: San Andreas",
+    "gta vice city": "Grand Theft Auto: Vice City",
+    "rdr": "Red Dead Redemption",
+    "rdr2": "Red Dead Redemption 2",
+    "rdr 2": "Red Dead Redemption 2",
+    "cod": "Call of Duty",
+    "cod mw": "Call of Duty: Modern Warfare",
+    "cod mw2": "Call of Duty: Modern Warfare II",
+    "cod warzone": "Call of Duty: Warzone",
+    "gow": "God of War",
+    "gow ragnarok": "God of War Ragnarök",
+    "gow 2018": "God of War",
+    "bg3": "Baldur's Gate 3",
+    "cs": "Counter-Strike",
+    "csgo": "Counter-Strike: Global Offensive",
+    "cs 2": "Counter-Strike 2",
+    "cs2": "Counter-Strike 2",
+    "tf2": "Team Fortress 2",
+    "ff7": "Final Fantasy VII",
+    "ff7 remake": "Final Fantasy VII Remake",
+    "ffvii": "Final Fantasy VII",
+    "ff14": "Final Fantasy XIV",
+    "ffxiv": "Final Fantasy XIV",
+    "ff16": "Final Fantasy XVI",
+    "botw": "The Legend of Zelda: Breath of the Wild",
+    "totk": "The Legend of Zelda: Tears of the Kingdom",
+    "zelda": "The Legend of Zelda",
+    "ac": "Assassin's Creed",
+    "ac valhalla": "Assassin's Creed Valhalla",
+    "ac odyssey": "Assassin's Creed Odyssey",
+    "re4": "Resident Evil 4",
+    "re2": "Resident Evil 2",
+    "re7": "Resident Evil 7",
+    "re village": "Resident Evil Village",
+    "mhw": "Monster Hunter: World",
+    "ds1": "Dark Souls",
+    "ds2": "Dark Souls II",
+    "ds3": "Dark Souls III",
+    "dks": "Dark Souls",
+    "er": "Elden Ring",
+    "cp2077": "Cyberpunk 2077",
+    "cyberpunk": "Cyberpunk 2077",
+    "eldenring": "Elden Ring",
+    "lol": "League of Legends",
+    "dota": "Dota 2",
+    "dota 2": "Dota 2",
+    "wow": "World of Warcraft",
+    "poe": "Path of Exile",
+    "destiny 2": "Destiny 2",
+    "d2": "Diablo II",
+    "d4": "Diablo IV"
+}
+
+def resolve_alias(query: str) -> str:
+    clean = query.lower().strip()
+    return GAME_ALIASES.get(clean, query)
 
 STOP_WORDS = {
     "a", "an", "the", "is", "are", "was", "were", "you", "your", "i", "me", "my",
@@ -64,15 +127,24 @@ def is_title_match(query: str, candidate_name: str) -> bool:
     clean_q = query.lower().strip()
     clean_cand = candidate_name.lower().strip()
 
-    if clean_q == clean_cand or clean_q in clean_cand or clean_cand in clean_q:
+    if clean_q == clean_cand:
         return True
 
     content_words = [w for w in re.findall(r"\b[a-zA-Z0-9]+\b", clean_q) if w not in STOP_WORDS]
-    if not content_words:
-        return False
+    # Filter out standalone numbers so '5' doesn't match 'Yakuza 5'
+    alpha_words = [w for w in content_words if not w.isdigit() and len(w) > 1]
+    if not alpha_words:
+        # If the query had NO content words or alpha words (e.g. 'the game', '5', 'is'),
+        # require exact match only!
+        return clean_q == clean_cand
 
-    matches = sum(1 for w in content_words if w in clean_cand)
-    return (matches / len(content_words)) >= 0.5
+    # If the alias expanded or exact phrase is contained
+    if len(clean_q) >= 4 and (clean_q in clean_cand or clean_cand in clean_q):
+        return True
+
+    cand_words = set(re.findall(r"\b[a-zA-Z0-9]+\b", clean_cand))
+    matches = sum(1 for w in alpha_words if w in cand_words)
+    return (matches / len(alpha_words)) >= 0.6
 
 async def search_videogame(query: str) -> Optional[Dict[str, Any]]:
     """
@@ -80,8 +152,9 @@ async def search_videogame(query: str) -> Optional[Dict[str, Any]]:
     Returns {id, name, tags} or None.
     """
     clean = query.strip()
+    expanded = resolve_alias(clean)
     url = f"{QLOO_BASE_URL}/search"
-    params = {"query": clean, "type": "urn:entity:videogame", "limit": 5}
+    params = {"query": expanded, "type": "urn:entity:videogame", "limit": 5}
 
     try:
         async with httpx.AsyncClient(timeout=8.0) as client:
@@ -95,7 +168,7 @@ async def search_videogame(query: str) -> Optional[Dict[str, Any]]:
                     if any("videogame" in str(t).lower() for t in types):
                         name = item.get("name", "")
                         # Strictly verify the returned game title actually matches the query
-                        if not is_title_match(clean, name):
+                        if not (is_title_match(expanded, name) or is_title_match(clean, name)):
                             continue
                         raw_tags = item.get("tags", [])
                         tags = [t.get("name") if isinstance(t, dict) else str(t) for t in raw_tags if (t.get("name") if isinstance(t, dict) else str(t))][:5]
@@ -108,7 +181,7 @@ async def search_videogame(query: str) -> Optional[Dict[str, Any]]:
         print(f"[Qloo Search Error] {e}")
 
     # Fallback catalog check
-    q_lower = clean.lower()
+    q_lower = expanded.lower()
     for key, entry in FALLBACK_CATALOG.items():
         if key in q_lower or q_lower in key:
             return {
